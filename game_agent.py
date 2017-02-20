@@ -37,8 +37,100 @@ def custom_score(game, player):
         The heuristic value of the current game state to the specified player.
     """
 
-    # TODO: finish this function!
-    raise NotImplementedError
+    if game.is_winner(player):
+       return(float('inf'))
+    elif game.is_loser(player):
+       return(float('-inf'))
+    else:
+       self_moves_left = len(game.get_legal_moves(player))
+       oppo_moves_left = len(game.get_legal_moves(game.get_opponent(player)))
+
+       # More aggressive evaluation function set to the remaining difference between own and twice number of
+       # opponent's remaining moves is used to increase pressure on opponent when LESS valid moves available
+       # in a state. The multiplier 2 is arbitrary. It can be shown that any multiplier > 1 applied to opponent's move
+       # number will produce similarly moving scores. So same results are expected for example multiplier 3, 4 or any
+       # real multiplier n, for n > 1
+
+       #return (float(self_moves_left - 2 * oppo_moves_left )) # Use any multipler n for opponent moves as  long as n > 1
+       return (float(- oppo_moves_left )) # Use any multipler n for opponent moves as  long as n > 1
+
+def eval_less_aggressive(game, player):
+    """Calculate the heuristic value of a game state from the point of view
+    of the given player.
+
+    Note: this function should be called from within a Player instance as
+    `self.score()` -- you should not need to call this function directly.
+
+    Parameters
+    ----------
+    game : `isolation.Board`
+        An instance of `isolation.Board` encoding the current state of the
+        game (e.g., player locations and blocked cells).
+
+    player : object
+        A player instance in the current game (i.e., an object corresponding to
+        one of the player objects `game.__player_1__` or `game.__player_2__`.)
+
+    Returns
+    -------
+    float
+        The heuristic value of the current game state to the specified player.
+    """
+
+    if game.is_winner(player):
+       return(float('inf'))
+    elif game.is_loser(player):
+       return(float('-inf'))
+    else:
+       self_moves_left = len(game.get_legal_moves(player))
+       oppo_moves_left = len(game.get_legal_moves(game.get_opponent(player)))
+
+       # less aggressive evaluation score for heuristic used - the remaining difference between own and only half number of
+       # opponent's remaining moves. The multiplier 0.5 is arbitrary. It can be shown that any multiplier < 1 applied to
+       # opponent's move number will produce similarly moving scores. So same results are expected for any multiplier
+       # such as 0.25, 0.5, etc or any real multiplier n, for n < 1
+
+       return (float(self_moves_left - 0.5 * oppo_moves_left))   # Use any multipler n for opponent moves as long as n < 1
+
+
+def eval_less_oppo_moves(game, player):
+    """Calculate the heuristic value of a game state from the point of view
+    of the given player.
+
+    Note: this function should be called from within a Player instance as
+    `self.score()` -- you should not need to call this function directly.
+
+    Parameters
+    ----------
+    game : `isolation.Board`
+        An instance of `isolation.Board` encoding the current state of the
+        game (e.g., player locations and blocked cells).
+
+    player : object
+        A player instance in the current game (i.e., an object corresponding to
+        one of the player objects `game.__player_1__` or `game.__player_2__`.)
+
+    Returns
+    -------
+    float
+        The heuristic value of the current game state to the specified player.
+    """
+
+    if game.is_winner(player):
+       return(float('inf'))
+    elif game.is_loser(player):
+       return(float('-inf'))
+    else:
+       self_moves_left = len(game.get_legal_moves(player))
+       oppo_moves_left = len(game.get_legal_moves(game.get_opponent(player)))
+
+       # the evaluation score for heuristic is based on less number of opponent moves available in a game state
+       # if there are less moves for the opponent, the score is higher. Own moves are not taken into account
+       # as in more aggressive play used in custom score above to check the performance of this eval vs that one
+       # Blank spaces do not reflect directly on L-moves possible since manoeuvering is possible even in congested
+       # spaces as long as an L-move is possible. Blank spaces would have been a good input in a queen move game
+
+       return (float(- oppo_moves_left))
 
 
 class CustomPlayer:
@@ -118,25 +210,59 @@ class CustomPlayer:
 
         self.time_left = time_left
 
-        # TODO: finish this function!
+        if self.time_left() < self.TIMER_THRESHOLD :
+            raise Timeout()
 
-        # Perform any required initializations, including selecting an initial
-        # move from the game board (i.e., an opening book), or returning
-        # immediately if there are no legal moves
+        legal_moves = game.get_legal_moves(game.active_player)
+        # check initial legal moves passed if valid
+        if not legal_moves:
+            return(-1,-1)  # Right away
+        else:
+            best_move = legal_moves[0] # Initialize best_move to atleast first element of list of moves
 
-        try:
-            # The search method call (alpha beta or minimax) should happen in
-            # here in order to avoid timeout. The try/except block will
-            # automatically catch the exception raised by the search method
-            # when the timer gets close to expiring
-            pass
+            try:
+                # The search method call (alpha beta or minimax) should happen in
+                # here in order to avoid timeout. The try/except block will
+                # automatically catch the exception raised by the search method
+                # when the timer gets close to expiring
 
-        except Timeout:
-            # Handle any actions required at timeout, if necessary
-            pass
+                if self.time_left() < self.TIMER_THRESHOLD:  # Not sufficient time
+                    return best_move
+
+                if self.iterative:   #iterative deepening flag set
+                    depth = 1 # Initialize depth
+
+                    while True: # limiting depth not recommended, evaluate indefinitely till out of time, check time left below
+                         if self.time_left() < self.TIMER_THRESHOLD:  # Not sufficient time
+                             return best_move
+
+                         if self.method == 'minimax':
+                             _, move = self.minimax(game,depth)
+                         else : # self.method == 'alphabeta'
+                             _, move = self.alphabeta(game, depth)
+
+                         if move != (-1,-1):  # recursive search did complete in time
+                             best_move = move   # so far calculated as deep as possible
+                         else:
+                             break # decamp with last best move
+
+                         depth +=1  #Increment depth and continue deeper
+
+                else: # if ID not set
+                     if self.method == 'minimax':
+                         _, best_move = self.minimax(game,self.search_depth)
+                     else: # select alphabeta
+                         _, best_move = self.alphabeta(game, self.search_depth)
+
+
+            except Timeout:
+                # Handle any actions required at timeout, if necessary
+                return best_move
+
 
         # Return the best move from the last completed search iteration
-        raise NotImplementedError
+        return best_move
+
 
     def minimax(self, game, depth, maximizing_player=True):
         """Implement the minimax search algorithm as described in the lectures.
@@ -169,11 +295,63 @@ class CustomPlayer:
                 to pass the project unit tests; you cannot call any other
                 evaluation function directly.
         """
-        if self.time_left() < self.TIMER_THRESHOLD:
+
+        if self.time_left() < self.TIMER_THRESHOLD :
             raise Timeout()
 
-        # TODO: finish this function!
-        raise NotImplementedError
+        legal_moves = game.get_legal_moves(game.active_player)
+        if not legal_moves:
+           return self.score(game,self), (-1,-1)
+
+        # Initialize best score and best move first
+        if maximizing_player:
+            best_score = float('-inf')
+        else:
+            best_score = float('inf')
+
+        best_move = (-1, -1)  # Initialize best_move here to illegal as this will be used as a check in get_moves
+                              # to check that recursive calls at longer depths have completed to depth 1
+
+        if depth == 1:
+           for valid_move in legal_moves:
+               # Check if time left to run minmax again
+               if self.time_left() < self.TIMER_THRESHOLD :  # Not sufficient time
+                   return best_score, best_move
+
+               if maximizing_player: # own player to maximize
+                  score = self.score(game.forecast_move(valid_move), self)
+                  if score > best_score:
+                    best_score = score
+                    best_move = valid_move
+
+               else : #Opposing player to minimize
+                   score = self.score(game.forecast_move(valid_move), self)
+                   if score < best_score:
+                      best_score = score
+                      best_move = valid_move
+
+           return best_score, best_move
+
+        if depth > 1 :
+           for valid_move in legal_moves:
+           # Check if time left to run minmax again
+               if self.time_left() < self.TIMER_THRESHOLD :  # Not sufficient time
+                   return best_score, best_move
+               #Otherwise run minmax recursively to next depth
+               if maximizing_player: #own player to maximize
+                  score, _ = self.minimax(game.forecast_move(valid_move), depth - 1, False)
+                  if score > best_score:
+                     best_score = score
+                     best_move = valid_move
+               else : #Opposing player to minimize
+                  score, _ = self.minimax(game.forecast_move(valid_move), depth - 1, True)
+                  if score < best_score:
+                     best_score = score
+                     best_move = valid_move
+
+        return best_score, best_move
+
+
 
     def alphabeta(self, game, depth, alpha=float("-inf"), beta=float("inf"), maximizing_player=True):
         """Implement minimax search with alpha-beta pruning as described in the
@@ -213,8 +391,76 @@ class CustomPlayer:
                 to pass the project unit tests; you cannot call any other
                 evaluation function directly.
         """
-        if self.time_left() < self.TIMER_THRESHOLD:
+
+        if self.time_left() < self.TIMER_THRESHOLD :
             raise Timeout()
 
-        # TODO: finish this function!
-        raise NotImplementedError
+        legal_moves = game.get_legal_moves(game.active_player)
+        if not legal_moves:
+           return self.score(game,self), (-1,-1)
+
+        # Initialize best score and best move first
+        best_move = (-1, -1)  # Initialize best_move here to illegal as this will be used as a check in get_moves
+                              # to check that recursive calls at longer depths have completed to depth 1
+
+        if maximizing_player:
+            best_score = float('-inf')
+        else:
+            best_score = float('inf')
+
+        if depth == 1:
+           for valid_move in legal_moves:
+               #Check if time left to run minmax again
+               if self.time_left() < self.TIMER_THRESHOLD :   # Not sufficient time
+                   return best_score, best_move
+               #Otherwise run minimax recursively to next depth
+
+               if maximizing_player: #own player to maximize
+                  score = self.score(game.forecast_move(valid_move), self)
+                  if score > best_score:
+                      best_score = score
+                      best_move = valid_move
+                      alpha = max(alpha, score)
+                      if beta <= alpha :
+                         break
+
+               else : #Opposing player to minimize
+                   score = self.score(game.forecast_move(valid_move), self)
+                   if score < best_score:
+                       best_score = score
+                       best_move = valid_move
+                       beta = min(beta, score)
+                       if beta <= alpha :
+                           break
+
+           return best_score, best_move
+
+        if depth > 1:
+
+           for valid_move in legal_moves:
+               # Check if time left to run minmax again
+               if self.time_left() < self.TIMER_THRESHOLD :  # Not sufficient time
+                   return best_score, best_move
+               #Otherwise run alphabeta recursively to next depth
+
+               if maximizing_player: #own player to maximize
+                  score, _ = self.alphabeta(game.forecast_move(valid_move), depth - 1, alpha, beta,
+                                            False)
+                  if score > best_score:
+                      best_score = score
+                      best_move = valid_move
+                      alpha = max(alpha, score)
+                      if beta <= alpha :
+                          break
+
+               else : #Opposing player to minimize
+                   score, _ = self.alphabeta(game.forecast_move(valid_move), depth - 1, alpha, beta,
+                                             True)
+                   if score < best_score:
+                       best_score = score
+                       best_move = valid_move
+                       beta = min(beta, score)
+                       if beta <= alpha :
+                           break
+
+        return best_score, best_move
